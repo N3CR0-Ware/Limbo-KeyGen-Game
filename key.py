@@ -69,9 +69,9 @@ class LimboKeysClient:
 WIDTH, HEIGHT, FRAMERATE = 150, 150, 75
 
 # configurables (do config.json)
-colored = False
+colored = True
 borderless = False
-transparent = False
+transparent = True
 music = True
 sfx = True
 # ==============================
@@ -119,6 +119,7 @@ if on_windows:
 
 
 running = True
+prev_left_button_down = False
 while running and client.alive:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -129,6 +130,19 @@ while running and client.alive:
             if event.button == 1:
                 if client.clickable:
                     client.clicked = True
+
+    # On Windows, the transparent color-key window only receives OS mouse
+    # events on its opaque pixels (the key itself), so pygame's own
+    # MOUSEBUTTONDOWN often never fires. Poll the global mouse state instead
+    # and hit-test against the whole window rect ourselves.
+    if on_windows:
+        left_button_down = bool(win32api.GetAsyncKeyState(0x01) & 0x8000)
+        if left_button_down and not prev_left_button_down and client.clickable:
+            cursor_x, cursor_y = win32api.GetCursorPos()
+            win_x, win_y = client.position
+            if win_x <= cursor_x <= win_x + WIDTH and win_y <= cursor_y <= win_y + HEIGHT:
+                client.clicked = True
+        prev_left_button_down = left_button_down
 
     screen.fill((1, 1, 1))
     if client.highlight_amount != 0:
@@ -166,11 +180,11 @@ if client.clicked:
         if on_windows:
             if sfx:
                 start_new_thread(winsound.PlaySound, ("SystemExclamation", winsound.SND_ALIAS))
-            alert("Deleting System32 in 3... 2... 1...")
+            alert("Wrong guess")
         else:
             if sfx:
                 pygame.mixer.music.load("error.mp3")
                 pygame.mixer.music.play()
-            mb.showerror(title="", message="Deleting System32 in 3... 2... 1...")
+            mb.showerror(title="", message="Wrong guess")
 
 pygame.quit()
