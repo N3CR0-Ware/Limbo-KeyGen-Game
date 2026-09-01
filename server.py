@@ -1,5 +1,5 @@
 import socketserver
-from json import loads, dumps
+import threading
 from typing import Any
 from time import time, sleep
 from math import cos, sin, pi
@@ -132,34 +132,33 @@ class TCPHandler(socketserver.BaseRequestHandler):
     correct_key = -1
     alive = True
     success = False
-    print_blocking = False
+    state_lock = threading.Lock()
 
     def handle(self) -> None:
         if len(TCPHandler.clients) >= 8:
             return
         if not TCPHandler.alive:
             return
-        client_id = 0
-        while True:
-            if client_id not in TCPHandler.clients:
-                break
-            client_id += 1
-        TCPHandler.clients.append(client_id)
-        if client_id == 0:
-            TCPHandler.steps = []
-            prev_move = -1
-            for _ in range(DO_TIMES):
-                move = -1
-                while prev_move == move or move == -1:
-                    move = choice(list(step_map.keys()))
-                    if len(TCPHandler.steps) and (TCPHandler.steps[-1], move) in forbidden_pairs:
-                        move = -1
-                    if len(step_map) == 1:
-                        break
-                TCPHandler.steps.append(move)
-                prev_move = move
-            TCPHandler.start_time = time()
-            TCPHandler.correct_key = randint(0, 7)
+        with TCPHandler.state_lock:
+            client_id = 0
+            while client_id in TCPHandler.clients:
+                client_id += 1
+            TCPHandler.clients.append(client_id)
+            if client_id == 0:
+                TCPHandler.steps = []
+                prev_move = -1
+                for _ in range(DO_TIMES):
+                    move = -1
+                    while prev_move == move or move == -1:
+                        move = choice(list(step_map.keys()))
+                        if len(TCPHandler.steps) and (TCPHandler.steps[-1], move) in forbidden_pairs:
+                            move = -1
+                        if len(step_map) == 1:
+                            break
+                    TCPHandler.steps.append(move)
+                    prev_move = move
+                TCPHandler.start_time = time()
+                TCPHandler.correct_key = randint(0, 7)
         print(f"{client_id} joined")
         try:
             while True:
@@ -186,15 +185,12 @@ class TCPHandler(socketserver.BaseRequestHandler):
         except OSError:
             pass
         finally:
-            while TCPHandler.print_blocking:
-                sleep(tcp_printblocking_lenght)
-            TCPHandler.print_blocking = True
-            print(f"{client_id} left")
-            TCPHandler.print_blocking = False
-            if len(TCPHandler.clients) == 1:
-                TCPHandler.alive = True
-                print("======================")
-            TCPHandler.clients.remove(client_id)
+            with TCPHandler.state_lock:
+                print(f"{client_id} left")
+                if len(TCPHandler.clients) == 1:
+                    TCPHandler.alive = True
+                    print("======================")
+                TCPHandler.clients.remove(client_id)
 
 
 def main():

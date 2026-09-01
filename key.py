@@ -11,7 +11,7 @@ else:
 # noinspection PyUnresolvedReferences,PyProtectedMember
 from pygame._sdl2 import Window
 from typing import Any
-from _thread import start_new_thread
+import threading
 if on_windows:
     import winsound
 from time import sleep
@@ -34,7 +34,7 @@ class LimboKeysClient:
         self.clickable = False
         self.success = False
         self.movement_finished = False
-        start_new_thread(self.listening_thread, ())
+        threading.Thread(target=self.listening_thread, daemon=True).start()
 
     def listening_thread(self):
         try:
@@ -63,7 +63,10 @@ class LimboKeysClient:
                         assigned_client_id = True
                     s.sendall(dumps({"quit": self.wants_to_quit, "clicked": self.clicked}).encode('ascii'))
         except Exception as e:
-            print(e)
+            print(f"[client {self.id}] connection lost: {e}")
+            # Without this, a dropped connection or a crashed server left the
+            # window frozen forever instead of closing like a normal error.
+            self.alive = False
 
 
 WIDTH, HEIGHT, FRAMERATE = 150, 150, 75
@@ -135,12 +138,17 @@ while running and client.alive:
     # events on its opaque pixels (the key itself), so pygame's own
     # MOUSEBUTTONDOWN often never fires. Poll the global mouse state instead
     # and hit-test against the whole window rect ourselves.
+    # A small margin is added around the rect to absorb the tiny lag between
+    # the position received from the server and where the window is actually
+    # drawn on screen, so fast-moving keys aren't unfairly hard to hit.
+    CLICK_MARGIN = 12
     if on_windows:
         left_button_down = bool(win32api.GetAsyncKeyState(0x01) & 0x8000)
         if left_button_down and not prev_left_button_down and client.clickable:
             cursor_x, cursor_y = win32api.GetCursorPos()
             win_x, win_y = client.position
-            if win_x <= cursor_x <= win_x + WIDTH and win_y <= cursor_y <= win_y + HEIGHT:
+            if (win_x - CLICK_MARGIN <= cursor_x <= win_x + WIDTH + CLICK_MARGIN
+                    and win_y - CLICK_MARGIN <= cursor_y <= win_y + HEIGHT + CLICK_MARGIN):
                 client.clicked = True
         prev_left_button_down = left_button_down
 
@@ -159,6 +167,10 @@ while running and client.alive:
 
     if on_windows and not client.movement_finished:
         try:
+            # Intentional "chaos" effect: while the keys are shuffling, each
+            # window has a small random chance per frame to yank itself back
+            # to the foreground. This is on purpose (part of the prank/
+            # distraction feel of the level), not a bug.
             if randint(1, 140) == 4:
                 shell = win32com.client.Dispatch("WScript.Shell")
                 shell.SendKeys('%')
@@ -179,7 +191,11 @@ if client.clicked:
     else:
         if on_windows:
             if sfx:
-                start_new_thread(winsound.PlaySound, ("SystemExclamation", winsound.SND_ALIAS))
+                threading.Thread(
+                    target=winsound.PlaySound,
+                    args=("SystemExclamation", winsound.SND_ALIAS),
+                    daemon=True
+                ).start()
             alert("Wrong guess")
         else:
             if sfx:

@@ -1,6 +1,6 @@
 from shutil import which
-from os import system
-from _thread import start_new_thread
+import subprocess
+import threading
 from time import sleep
 from server import main
 
@@ -12,19 +12,29 @@ else:
     cmd = "python3"
 
 counted = 0
-start_new_thread(main, ())
+counted_lock = threading.Lock()
+
+threading.Thread(target=main, daemon=True).start()
 
 
-def threadeded():
+def launch_client(client_number: int) -> None:
     global counted
-    system(cmd + " key.py")
-    counted -= 1
+    result = subprocess.run([cmd, "key.py"])
+    if result.returncode != 0:
+        print(f"[main] client window #{client_number} exited with code {result.returncode} "
+              f"(check for a missing key{{0-7}}.png, config.json, or a crash inside key.py)")
+    with counted_lock:
+        counted -= 1
 
 
-for _ in range(8):
-    counted += 1
-    start_new_thread(threadeded, ())
+for client_number in range(8):
+    with counted_lock:
+        counted += 1
+    threading.Thread(target=launch_client, args=(client_number,), daemon=True).start()
     sleep(0.23)
 
-while counted:
+while True:
+    with counted_lock:
+        if counted <= 0:
+            break
     sleep(0.1)

@@ -1,0 +1,28 @@
+{
+  "_comment": "Renomme ce fichier en config.json pour l'activer. Toutes les clés sont optionnelles.",
+
+  "screen_width": -1,
+  "screen_height": -1,
+  "_screen_comment": "-1 = détection automatique de la taille de l'écran (serveur uniquement)",
+
+  "spacing": 100,
+  "_spacing_comment": "Espacement entre les fenêtres de clés en mode statique (serveur uniquement)",
+
+  "tickrate": 60,
+  "_tickrate_comment": "Fréquence de mise à jour du serveur, en ticks/seconde",
+
+  "colored": true,
+  "_colored_comment": "Affiche une couleur unique par clé une fois le mouvement terminé",
+
+  "borderless": false,
+  "_borderless_comment": "Retire la barre de titre des fenêtres de clés (client uniquement)",
+
+  "transparent": true,
+  "_transparent_comment": "Rend le fond des fenêtres transparent, ne garde que la clé visible (Windows uniquement)",
+
+  "music": true,
+  "_music_comment": "Joue LIMBO.mp3 en fond pendant la partie",
+
+  "sfx": true,
+  "_sfx_comment": "Joue un son d'erreur (error.mp3 / SystemExclamation) en cas de mauvaise réponse"
+}
